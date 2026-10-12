@@ -1,0 +1,256 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Document Search Service",
+    "description": "\nПростой поисковик по текстам документов.\n\n* Документы хранятся в **PostgreSQL**, поисковый индекс — в **Elasticsearch**.\n* Поиск идёт по тексту документа с учётом морфологии русского языка.\n",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/documents/search": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Поиск документов по тексту",
+        "description": "Ищет документы по тексту в индексе и возвращает **первые 20** со всеми полями из БД.\n\n* Документ подходит, если в нём есть **все** слова запроса (с учётом словоформ).\n* Результаты упорядочены по дате создания: **сначала самые новые**.\n* Если ничего не найдено — пустой список.",
+        "operationId": "search_documents_documents_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Произвольный текстовый запрос",
+              "examples": [
+                "конкурс скин"
+              ],
+              "title": "Q"
+            },
+            "description": "Произвольный текстовый запрос"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentOut"
+                  },
+                  "title": "Response Search Documents Documents Search Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Поисковый индекс недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{document_id}": {
+      "delete": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Удалить документ",
+        "description": "Удаляет документ из БД и из поискового индекса.\n\nОперация идемпотентна по частичным сбоям: если в прошлый раз документ успел\nудалиться только из БД (индекс был недоступен), повторный вызов дочистит индекс.",
+        "operationId": "delete_document_documents__document_id__delete",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "description": "id документа",
+              "title": "Document Id"
+            },
+            "description": "id документа"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Документ не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Поисковый индекс недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DocumentOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Уникальный идентификатор документа",
+            "examples": [
+              42
+            ]
+          },
+          "rubrics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rubrics",
+            "description": "Массив рубрик",
+            "examples": [
+              [
+                "VK-1603736028819866",
+                "VK-11879320040"
+              ]
+            ]
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Текст документа"
+          },
+          "created_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created Date",
+            "description": "Дата создания документа",
+            "examples": [
+              "2019-07-25T12:42:13"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "rubrics",
+          "text",
+          "created_date"
+        ],
+        "title": "DocumentOut",
+        "description": "Документ со всеми полями из БД."
+      },
+      "ErrorOut": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "examples": [
+              "Документ не найден"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
